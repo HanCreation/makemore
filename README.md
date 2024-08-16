@@ -30,6 +30,10 @@ Written in Indonesian+English
 - Methods to make calculation in GPU
 - Finding good learning rate
 - Training using mini batch approach
+- Vanishing gradient problem, analyzing the weakness of Tanh which is squashing function and how to fix it with He/kaiming Init or adding batch normalization layer
+- He/Kaiming init weakness on more deep neural net
+- Little bit of dying relu and dead neuron
+- Batch Normalization Layer in depth and 2 approach on estimating mean and standard deviation for inference on the batchnorm layer
 ---
 Noted and Created by Han Summer 2024
 
