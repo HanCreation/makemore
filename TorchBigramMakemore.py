@@ -22,8 +22,8 @@ with open(file_name,'r', encoding='utf-8') as f:
 #Vocab Ambil semua karakter unik dalam dataset
 chars=sorted(list(set(text)))
 vocab_size=len(chars)
-print("".join(chars))
-print(vocab_size)
+# print("".join(chars))
+# print(vocab_size)
 #Buat tabel untuk mapping karakter ke integer dan sebaliknya
 stoi={ch:i for i,ch in enumerate(chars)}
 itos={i:ch for i,ch in enumerate(chars)}
@@ -50,10 +50,10 @@ def get_batch(split):
     x, y = x.to(device), y.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
     return x, y
 
-@torch.no_grad()
+@torch.no_grad() #Kasih tau pytorch buat ga nyimpen gradient dari fungsi ini, karena ini buat evaluasi doang dan supaya lebih efisien
 def estimate_loss():
     out = {}
-    model.eval()
+    model.eval() # set model ke evaluation mode, karena jika layer layer tertentu bisa punya kelakuan beda saat inference(eval) dan training, contoh kek batchnorm
     for split in ['train', 'val']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
@@ -61,7 +61,7 @@ def estimate_loss():
             logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
-    model.train()
+    model.train() # set model ke training mode
     return out
 
 class BigramLanguageModel(nn.Module):
