@@ -8,7 +8,7 @@ block_size=8
 max_iters=3000
 eval_interval=300 #Do evaluation every eval_interval iterations
 learning_rate= 1e-2
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #Use GPU (NVIDA RTX for example) if available
 eval_iters=200
 
 # torch.manual_seed(1337)
@@ -47,7 +47,7 @@ def get_batch(split):
     x = torch.stack([data[i:i+block_size] for i in ix]) # index ke i sampai i+block_size, ini inputnya, i itu angka yg ada di array ix
     y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # targetnya adalah x yang di offset 1
     #torch.stack itu buat numpuk tensor-tensor 1D terus di tumpuk semua (stack them up at rows)
-    x, y = x.to(device), y.to(device)
+    x, y = x.to(device), y.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
     return x, y
 
 @torch.no_grad()
@@ -104,7 +104,7 @@ class BigramLanguageModel(nn.Module):
         return idx
 
 model = BigramLanguageModel(vocab_size)
-m = model.to(device)
+m = model.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
 
 # create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
