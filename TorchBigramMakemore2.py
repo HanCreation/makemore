@@ -177,12 +177,12 @@ class BigramLanguageModel(nn.Module):
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
-            nn.LayerNorm(n_embd)
+            nn.LayerNorm(n_embd) #Last layer norm sebelum masuk ke linear layer terakhir
         )
         # mulai deep neural netnya sehingga mulai ada isu optimasi -> fix dengan residual connection
         # Residual connection itu nambahin input ke outputnya, jadi outputnya = input + f(input), ini membantu gradient flow saat backpropagation
         
-        #Buat linear layer buat jadiin logit
+        #Buat linear layer buat jadiin logit -> Final layer
         self.lm_head=nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, targets=None):
