@@ -71,14 +71,23 @@ class BigramLanguageModel(nn.Module):
         super().__init__()
         # setiap token secara langsung baca logits buat next token dari lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        #Kemudian selain encoding table, tambahin encoding untuk posisi karakternya
+        self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        #Buat linear layer buat jadiin logit
         self.lm_head=nn.Linear(n_embd, vocab_size)
 
     def forward(self, idx, targets=None):
+        B, T = idx.shape #Batch, Time (Time itu berapa banyak karakter yang ada di sequence)
+        
         #idx di pass dan bakal baca di embedding table yang di init dan ambil baris yang sesuai dgn idx
         #idx =43 bakal baca baris ke 43 dari embedding table
         token_embd = self.token_embedding_table(idx) # (B,T,C)
-        #Karena itu baru token embedding, kita mau jadiin logit, jadi kita lewatkan ke linear layer
-        logits = self.lm_head(token_embd) # (B,T,C)
+        #Tambahin posisi karakternya
+        pos_emb=self.position_embedding_table(torch.arange(T, device=device)) # (T,C) -> aranging dari 0 sampai T-1, kemudian di embedding 
+        #Gabungin token embedding dan posisi embedding
+        x=token_embd+pos_emb # (B,T,C)
+        #Masukin ke linear layer
+        logits = self.lm_head(x) # (B,T,C)
         
         
         if targets is None: #Prediction mode
