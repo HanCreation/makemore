@@ -143,12 +143,14 @@ class Block(nn.Module):
         self.ffwd=FeedForward(n_embd)
         
         #Pre norm formulation -> gak sama kayak paper original (Normalization Layer)
-        self.lnl1=nn.LayerNorm(n_embd)
+        #Layer norm is normalizing the features, unit gaussian at init
+        self.ln1=nn.LayerNorm(n_embd)
+        self.ln2=nn.LayerNorm(n_embd)
         
     def forward(self,x):
         # x + f(x) -> Residual connection
-        x=x + self.sa_head(x)
-        x=x + self.ffwd(x)
+        x=x + self.sa_head(self.ln1(x))
+        x=x + self.ffwd(self.ln2(x))
         return x
     
 
@@ -175,6 +177,7 @@ class BigramLanguageModel(nn.Module):
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
             Block(n_embd, n_head=4),
+            nn.LayerNorm(n_embd)
         )
         # mulai deep neural netnya sehingga mulai ada isu optimasi -> fix dengan residual connection
         # Residual connection itu nambahin input ke outputnya, jadi outputnya = input + f(input), ini membantu gradient flow saat backpropagation
