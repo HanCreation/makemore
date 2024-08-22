@@ -110,36 +110,75 @@ class MultiHeadAttention(nn.Module):
         #Buat beberapa head self-attention sebanyak num_heads
         self.heads=nn.ModuleList([Head(head_size) for _ in range(num_heads)])
         # nn.ModuleList: Container untuk menyimpan daftar sub-modul yang merupakan instance dari nn.Module. Perlu mengatur sendiri bagaimana sub-modul ini digunakan dalam metode forward. (Mirip kayak sequential yang udah pasti forwardnya berurutan, kalau ini di setting sendiri)
+        
+        #Projection digunakan untuk menggabungkan hasil dari setiap head
+        self.proj=nn.Linear(n_embd, n_embd) #Projection matrix
     
     def forward(self, x):
-        return torch.cat([h(x) for h in self.heads], dim=-1) #Concatenate hasil dari setiap head
+        out= torch.cat([h(x) for h in self.heads], dim=-1) #Concatenate hasil dari setiap head
+        out = self.proj(out) #Projection
+        return out
     
 class FeedForward(nn.Module):
     # Simple feedforward network with linear and non-linear activation    
-    def __init__(self) -> None:
+    def __init__(self, n_embd):
         super().__init__()
         self.net=nn.Sequential( #Per token level
-            nn.Linear(n_embd,n_embd),
-            nn.ReLU()
+            nn.Linear(n_embd,4*n_embd),
+            nn.ReLU(),
+            nn.Linear(4*n_embd,n_embd) #Projection layer
         )
         
     def forward(self,x):
         out=self.net(x)
         return out
+    
+class Block(nn.Module):
+    '''Transformer block: Attention dilanjutkan dengan komputasi'''
+    def __init__(self, n_embd, n_head):
+        super().__init__()
+        head_size= n_embd//n_head
+        #Attention -> Feedforward
+        self.sa_head=MultiHeadAttention(n_head, head_size)
+        self.ffwd=FeedForward(n_embd)
         
+        #Pre norm formulation -> gak sama kayak paper original (Normalization Layer)
+        self.lnl1=nn.LayerNorm(n_embd)
+        
+    def forward(self,x):
+        # x + f(x) -> Residual connection
+        x=x + self.sa_head(x)
+        x=x + self.ffwd(x)
+        return x
+    
+
+
 class BigramLanguageModel(nn.Module):
 
-    def __init__(self):
+    def __init__(self, vocab_size):
         super().__init__()
+        
         # setiap token secara langsung baca logits buat next token dari lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         #Kemudian selain encoding table, tambahin encoding untuk posisi karakternya
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        
         #self-attention head 1 head doang
         # self.sa_head=Head(n_embd)
+        
         # multi-head attention 4 head -> Awalnya 1 head dengan 32 dimensi, sekarang 4 head dengan 8 dimensi yang digabung jadi 32 dimensi ujungnya
-        self.sa_heads=MultiHeadAttention(4, n_embd//4) #4 head, masing-masing head punya ukuran n_embd//4
-        self.ffwd=FeedForward(n_embd)
+        # self.sa_heads=MultiHeadAttention(4, n_embd//4) #4 head, masing-masing head punya ukuran n_embd//4
+        # self.ffwd=FeedForward(n_embd)
+        
+        #Multi block 
+        self.blocks=nn.Sequential(
+            Block(n_embd, n_head=4),
+            Block(n_embd, n_head=4),
+            Block(n_embd, n_head=4),
+        )
+        # mulai deep neural netnya sehingga mulai ada isu optimasi -> fix dengan residual connection
+        # Residual connection itu nambahin input ke outputnya, jadi outputnya = input + f(input), ini membantu gradient flow saat backpropagation
+        
         #Buat linear layer buat jadiin logit
         self.lm_head=nn.Linear(n_embd, vocab_size)
 
@@ -153,10 +192,15 @@ class BigramLanguageModel(nn.Module):
         pos_emb=self.position_embedding_table(torch.arange(T, device=device)) # (T,C) -> aranging dari 0 sampai T-1, kemudian di embedding 
         #Gabungin token embedding dan posisi embedding
         x=token_embd+pos_emb # (B,T,C)
-        #Lakukan self attention head
-        x=self.sa_heads(x) # (B,T,C)
-        # Feed-forward transformers
-        x=self.ffwd(x)
+       
+        # #Lakukan self attention head/multi-head
+        # x=self.sa_heads(x) # (B,T,C)
+        # # Feed-forward transformers
+        # x=self.ffwd(x)
+        
+        #Multi block
+        x=self.blocks(x) # (B,T,C)
+    
         #Masukin ke linear layer
         logits = self.lm_head(x) # (B,T,C)
         
