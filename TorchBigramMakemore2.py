@@ -65,6 +65,42 @@ def estimate_loss():
     model.train() # set model ke training mode
     return out
 
+#One head self-attention
+class Head(nn.Module):
+    def __init__(self,head_size):
+        super().__init__()
+        #Key
+        self.key=nn.Linear(n_embd, head_size,bias=False)
+        #Query
+        self.query=nn.Linear(n_embd, head_size,bias=False)
+        #Value
+        self.value=nn.Linear(n_embd, head_size,bias=False)
+        #Register buffer itu buat ngebuat tensor yang ga bakal di update sama optimizer
+        #Berguna untuk tensor yang perlu disimpen tapi ga perlu di update, contoh kek mask
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        #Lower triangular matrix (torch.tril) for masking, preventing current token talking to future token
+        # [[1,0,0,0,0],
+        #  [1,1,0,0,0],
+        #  [1,1,1,0,0],
+        #  [1,1,1,1,0],
+        #  [1,1,1,1,1]]
+
+    def forward(self, x):
+        B, T, C = x.shape
+        #Query and Key matrix
+        k=self.key(x) # (B,T,C)
+        q=self.query(x) # (B,T,C)
+        #Compute attention
+        #Attention = softmax(QK^T/sqrt(d_k))V
+        wei= q @ k.transpose(-2,-1) * C**(-0.5) # (B,T,C) @ (B,C,T) ---> (B,T,T)
+        wei= wei.masked_fill(self.tril[:T,:T]==0, float('-inf')) #Masking, prevent current token talking to future token (B,T,T)
+        wei = F.softmax(wei, dim=-1) # (B,T,T)
+        # perform weight aggregation of values
+        v=self.value(x) # (B,T,C) #Value matrix
+        out= wei@v # (B,T,T) @ (B,T,C) -> (B,T,C)
+        return out
+    
+    
 class BigramLanguageModel(nn.Module):
 
     def __init__(self):
@@ -73,6 +109,8 @@ class BigramLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         #Kemudian selain encoding table, tambahin encoding untuk posisi karakternya
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
+        #self-attention head
+        self.sa_head=Head(n_embd)
         #Buat linear layer buat jadiin logit
         self.lm_head=nn.Linear(n_embd, vocab_size)
 
@@ -86,6 +124,8 @@ class BigramLanguageModel(nn.Module):
         pos_emb=self.position_embedding_table(torch.arange(T, device=device)) # (T,C) -> aranging dari 0 sampai T-1, kemudian di embedding 
         #Gabungin token embedding dan posisi embedding
         x=token_embd+pos_emb # (B,T,C)
+        #Lakukan self attention head
+        x=self.sa_head(x) # (B,T,C)
         #Masukin ke linear layer
         logits = self.lm_head(x) # (B,T,C)
         
@@ -105,8 +145,10 @@ class BigramLanguageModel(nn.Module):
     def generate(self, idx, max_new_tokens):
         # idx adlaah (B x T) tensor dari konteks saat ini
         for _ in range(max_new_tokens):
+            # Potong idx ke last block_size token karena kita udah punya position embedding yang ukurannya cuman segede block_size, kalau lebih nanti out of size
+            idx_cond = idx[:, -block_size:] # (B, T)
             # forward pass (Prediction mode)
-            logits, loss = self(idx)#Call object dirinya sendiri (forward)
+            logits, loss = self(idx_cond)#Call object dirinya sendiri (forward)
             # ambil idx paling belakang dari T, karena ini adalah prediksi untuk token selanjutnya
             logits = logits[:, -1, :] # becomes (B, C)
             # pasang softmax untuk mendapatkan distribusi probabilitas
