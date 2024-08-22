@@ -104,6 +104,7 @@ class MultiHeadAttention(nn.Module):
     # Multi-head attention itu gabungan dari beberapa head self-attention yang dilakukan secara paralel   
     # Multi-head attention =  Concat(head1, head2, ..., headN)W^O
     # Dimana headi= Attention (QW^Q_i, KW^K_i, VW^V_i)
+    # Disini akan menguntungkan performance karena token punya banyak hal yang dibicarain (With multiple heads, we have multiple channel of communication)
     def __init__(self, num_heads, head_size):
         super().__init__()
         #Buat beberapa head self-attention sebanyak num_heads
@@ -113,6 +114,19 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         return torch.cat([h(x) for h in self.heads], dim=-1) #Concatenate hasil dari setiap head
     
+class FeedForward(nn.Module):
+    # Simple feedforward network with linear and non-linear activation    
+    def __init__(self) -> None:
+        super().__init__()
+        self.net=nn.Sequential( #Per token level
+            nn.Linear(n_embd,n_embd),
+            nn.ReLU()
+        )
+        
+    def forward(self,x):
+        out=self.net(x)
+        return out
+        
 class BigramLanguageModel(nn.Module):
 
     def __init__(self):
@@ -121,8 +135,11 @@ class BigramLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         #Kemudian selain encoding table, tambahin encoding untuk posisi karakternya
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        #self-attention head
-        self.sa_head=Head(n_embd)
+        #self-attention head 1 head doang
+        # self.sa_head=Head(n_embd)
+        # multi-head attention 4 head -> Awalnya 1 head dengan 32 dimensi, sekarang 4 head dengan 8 dimensi yang digabung jadi 32 dimensi ujungnya
+        self.sa_heads=MultiHeadAttention(4, n_embd//4) #4 head, masing-masing head punya ukuran n_embd//4
+        self.ffwd=FeedForward(n_embd)
         #Buat linear layer buat jadiin logit
         self.lm_head=nn.Linear(n_embd, vocab_size)
 
@@ -137,7 +154,9 @@ class BigramLanguageModel(nn.Module):
         #Gabungin token embedding dan posisi embedding
         x=token_embd+pos_emb # (B,T,C)
         #Lakukan self attention head
-        x=self.sa_head(x) # (B,T,C)
+        x=self.sa_heads(x) # (B,T,C)
+        # Feed-forward transformers
+        x=self.ffwd(x)
         #Masukin ke linear layer
         logits = self.lm_head(x) # (B,T,C)
         
