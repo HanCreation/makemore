@@ -99,7 +99,19 @@ class Head(nn.Module):
         v=self.value(x) # (B,T,C) #Value matrix
         out= wei@v # (B,T,T) @ (B,T,C) -> (B,T,C)
         return out
+
+class MultiHeadAttention(nn.Module):
+    # Multi-head attention itu gabungan dari beberapa head self-attention yang dilakukan secara paralel   
+    # Multi-head attention =  Concat(head1, head2, ..., headN)W^O
+    # Dimana headi= Attention (QW^Q_i, KW^K_i, VW^V_i)
+    def __init__(self, num_heads, head_size):
+        super().__init__()
+        #Buat beberapa head self-attention sebanyak num_heads
+        self.heads=nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        # nn.ModuleList: Container untuk menyimpan daftar sub-modul yang merupakan instance dari nn.Module. Perlu mengatur sendiri bagaimana sub-modul ini digunakan dalam metode forward. (Mirip kayak sequential yang udah pasti forwardnya berurutan, kalau ini di setting sendiri)
     
+    def forward(self, x):
+        return torch.cat([h(x) for h in self.heads], dim=-1) #Concatenate hasil dari setiap head
     
 class BigramLanguageModel(nn.Module):
 
