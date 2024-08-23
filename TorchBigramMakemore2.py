@@ -3,15 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #Hyperparameters
-batch_size = 32
-block_size=8 #Context size
-max_iters=5000
-eval_interval=300 #Do evaluation every eval_interval iterations
-learning_rate= 1e-3 #Self-attention ga terlalu bagus dengan learning rate yang tinggi
+batch_size = 128
+block_size= 256 #Context size to predict next character (context=8 berarti predict karakter ke 9 berdasarkan 8 urutan sebelumnya)
+max_iters=10000
+eval_interval=250 #Do evaluation every eval_interval iterations
+learning_rate= 3e-4 #Self-attention ga terlalu bagus dengan learning rate yang tinggi
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #Use GPU (NVIDA RTX for example) if available
 eval_iters=200
-n_embd = 32 #Embedding dimensionsize
-n_layer= 4 #Number of layers
+n_embd = 384 #Embedding dimensionsize
+n_layer= 6 #Number of layers
+n_head=6 #Number of heads in multi-head attention
+dropout=0.2 #20% dropout
+#------
 
 # torch.manual_seed(1337)
 
@@ -86,6 +89,12 @@ class Head(nn.Module):
         #  [1,1,1,1,0],
         #  [1,1,1,1,1]]
 
+        #Dropout bekerja dengan cara mematikan sebagian node/neuron secara acak, sehingga node lainnya harus belajar untuk mengambil alih pekerjaan node yang dimatikan (Banyak kombinasi neuron neuron acak)
+        #Ini membantu mencegah overfitting
+        self.dropout=nn.Dropout(dropout) #For preventing some nodes communicating
+
+        
+
     def forward(self, x):
         B, T, C = x.shape
         #Query and Key matrix
@@ -96,6 +105,7 @@ class Head(nn.Module):
         wei= q @ k.transpose(-2,-1) * C**(-0.5) # (B,T,C) @ (B,C,T) ---> (B,T,T)
         wei= wei.masked_fill(self.tril[:T,:T]==0, float('-inf')) #Masking, prevent current token talking to future token (B,T,T)
         wei = F.softmax(wei, dim=-1) # (B,T,T)
+        wei = self.dropout(wei) #Dropout
         # perform weight aggregation of values
         v=self.value(x) # (B,T,C) #Value matrix
         out= wei@v # (B,T,T) @ (B,T,C) -> (B,T,C)
@@ -114,10 +124,14 @@ class MultiHeadAttention(nn.Module):
         
         #Projection digunakan untuk menggabungkan hasil dari setiap head
         self.proj=nn.Linear(n_embd, n_embd) #Projection matrix
+        
+        #Dropout layer
+        self.dropout=nn.Dropout(dropout)
     
     def forward(self, x):
         out= torch.cat([h(x) for h in self.heads], dim=-1) #Concatenate hasil dari setiap head
         out = self.proj(out) #Projection
+        out = self.dropout(out) #Dropout
         return out
     
 class FeedForward(nn.Module):
@@ -127,7 +141,8 @@ class FeedForward(nn.Module):
         self.net=nn.Sequential( #Per token level
             nn.Linear(n_embd,4*n_embd),
             nn.ReLU(),
-            nn.Linear(4*n_embd,n_embd) #Projection layer
+            nn.Linear(4*n_embd,n_embd), #Projection layer
+            nn.Dropout(dropout) #Dropout layer
         )
         
     def forward(self,x):
@@ -156,7 +171,7 @@ class Block(nn.Module):
     
 
 
-class BigramLanguageModel(nn.Module):
+class GPTLanguageModel(nn.Module):
 
     def __init__(self, vocab_size):
         super().__init__()
@@ -174,12 +189,15 @@ class BigramLanguageModel(nn.Module):
         # self.ffwd=FeedForward(n_embd)
         
         #Multi block 
-        self.blocks=nn.Sequential(
-            Block(n_embd, n_head=4),
-            Block(n_embd, n_head=4),
-            Block(n_embd, n_head=4),
-            nn.LayerNorm(n_embd) #Last layer norm sebelum masuk ke linear layer terakhir
-        )
+        # self.blocks=nn.Sequential(
+        #     Block(n_embd, n_head=4),
+        #     Block(n_embd, n_head=4),
+        #     Block(n_embd, n_head=4),
+        #     nn.LayerNorm(n_embd) #Last layer norm sebelum masuk ke linear layer terakhir
+        # )
+        self.blocks=nn.Sequential(*[Block(n_embd, n_head=n_head) for _ in range(n_layer)]) #Buat n-layer
+        self.ln=nn.LayerNorm(n_embd) #Last layer norm sebelum masuk ke linear layer terakhir
+        
         # mulai deep neural netnya sehingga mulai ada isu optimasi -> fix dengan residual connection
         # Residual connection itu nambahin input ke outputnya, jadi outputnya = input + f(input), ini membantu gradient flow saat backpropagation
         
@@ -204,8 +222,10 @@ class BigramLanguageModel(nn.Module):
         
         #Multi block
         x=self.blocks(x) # (B,T,C)
-    
-        #Masukin ke linear layer
+        #Layer norm
+        x=self.ln(x) # (B,T,C)
+        
+        #Masukin ke linear layer terakhir
         logits = self.lm_head(x) # (B,T,C)
         
         
@@ -238,7 +258,7 @@ class BigramLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
         return idx
 
-model = BigramLanguageModel(vocab_size)
+model = GPTLanguageModel(vocab_size)
 m = model.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
 
 # create a PyTorch optimizer
@@ -259,6 +279,9 @@ for iter in range(max_iters):
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
+
+# save the model
+torch.save(model.state_dict(), 'model.pth')
 
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device) #Start index
