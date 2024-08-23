@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #Hyperparameters
-batch_size = 64
+batch_size = 32
 block_size= 256 #Context size to predict next character (context=8 berarti predict karakter ke 9 berdasarkan 8 urutan sebelumnya)
-max_iters=5000
-eval_interval=500 #Do evaluation every eval_interval iterations
+max_iters=10000
+eval_interval=250 #Do evaluation every eval_interval iterations
 learning_rate= 3e-4 #Self-attention ga terlalu bagus dengan learning rate yang tinggi
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") #Use GPU (NVIDA RTX for example) if available
 eval_iters=200
