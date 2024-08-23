@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #Hyperparameters
-batch_size = 32
+batch_size = 128
 block_size= 256 #Context size to predict next character (context=8 berarti predict karakter ke 9 berdasarkan 8 urutan sebelumnya)
 max_iters=10000
 eval_interval=250 #Do evaluation every eval_interval iterations
