@@ -280,6 +280,9 @@ for iter in range(max_iters):
     loss.backward()
     optimizer.step()
 
+# save the model
+torch.save(model.state_dict(), 'model.pth')
+
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device) #Start index
 #  [0] itu First dimension/firstbatch for predicition -> m.generate(context, max_new_tokens=500)[0].tolist()
