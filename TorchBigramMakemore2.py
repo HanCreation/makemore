@@ -142,7 +142,7 @@ class FeedForward(nn.Module):
             nn.Linear(n_embd,4*n_embd),
             nn.ReLU(),
             nn.Linear(4*n_embd,n_embd), #Projection layer
-            nn.dropout(dropout) #Dropout layer
+            nn.Dropout(dropout) #Dropout layer
         )
         
     def forward(self,x):
