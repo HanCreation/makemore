@@ -13,8 +13,8 @@ eval_iters=200
 n_embd = 384 #Embedding dimensionsize
 n_layer= 6 #Number of layers
 n_head=6 #Number of heads in multi-head attention
-dropout=0.0
-
+dropout=0.2 #20% dropout
+#------
 
 # torch.manual_seed(1337)
 
