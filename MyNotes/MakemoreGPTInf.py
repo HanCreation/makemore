@@ -20,7 +20,7 @@ dropout=0.2 #20% dropout
 
 #Data ('tinyshakespeare.txt' is a tiny version of 'shakespeare.txt')
 # wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
-file_name='tinyshakespeare.txt' # change to tinyshakespeare directory/file name
+file_name='puisi.txt' # change to tinyshakespeare directory/file name
 with open(file_name,'r', encoding='utf-8') as f:
     text=f.read()
     
