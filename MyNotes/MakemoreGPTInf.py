@@ -240,7 +240,7 @@ class GPTLanguageModel(nn.Module):
 
 
 #load model
-model_path='D:\Repository\makemore\MyNotes\modelTinyShakeSpearee.pth'
+model_path='D:\Repository\makemore\ModelPuisi\model.pth'
 model_load=GPTLanguageModel(vocab_size)
 model_load.load_state_dict(torch.load(model_path))
 m=model_load.to(device)
