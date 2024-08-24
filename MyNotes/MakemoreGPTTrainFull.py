@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-#Hyperparameters Template
+#Hyperparameters
 batch_size = 128
 block_size= 256 #Context size to predict next character (context=8 berarti predict karakter ke 9 berdasarkan 8 urutan sebelumnya)
 max_iters=10000
@@ -14,7 +14,60 @@ n_embd = 384 #Embedding dimensionsize
 n_layer= 6 #Number of layers
 n_head=6 #Number of heads in multi-head attention
 dropout=0.2 #20% dropout
-#--------------------------------------------------------------
+#------
+
+# torch.manual_seed(1337)
+
+#Data ('tinyshakespeare.txt' is a tiny version of 'shakespeare.txt')
+# wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+file_name='tinyshakespeare.txt' # change to tinyshakespeare directory/file name
+with open(file_name,'r', encoding='utf-8') as f:
+    text=f.read()
+    
+#Vocab Ambil semua karakter unik dalam dataset
+chars=sorted(list(set(text)))
+vocab_size=len(chars)
+# print("".join(chars))
+# print(vocab_size)
+#Buat tabel untuk mapping karakter ke integer dan sebaliknya
+stoi={ch:i for i,ch in enumerate(chars)}
+itos={i:ch for i,ch in enumerate(chars)}
+#Encode (string->char to int)
+encode=lambda s: [stoi[ch] for ch in s]
+#Decode (int->char to string)
+decode=lambda l: "".join([itos[i] for i in l])
+
+#Train-Val split
+#Misahin data menjadi train set dan validation set, supaya model bisa belajar dan diuji, kemudian kita bisa cek ga ada overfitting, ga nginget dataset doang
+data=torch.tensor(encode(text), dtype=torch.long)
+n= int(0.9*len(data))
+train_data=data[:n]
+val_data=data[n:]
+
+#Data loader
+def get_batch(split):
+    # generate a small batch of data of inputs x and targets y
+    data = train_data if split == 'train' else val_data # milih split train atau val
+    ix = torch.randint(len(data) - block_size, (batch_size,)) # generate random index positions, generate angka random 0 sampai len(data) - block_size sebanyak batch_sizenya, buat offset di training set
+    x = torch.stack([data[i:i+block_size] for i in ix]) # index ke i sampai i+block_size, ini inputnya, i itu angka yg ada di array ix
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # targetnya adalah x yang di offset 1
+    #torch.stack itu buat numpuk tensor-tensor 1D terus di tumpuk semua (stack them up at rows)
+    x, y = x.to(device), y.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
+    return x, y
+
+@torch.no_grad() #Kasih tau pytorch buat ga nyimpen gradient dari fungsi ini, karena ini buat evaluasi doang dan supaya lebih efisien
+def estimate_loss():
+    out = {}
+    model.eval() # set model ke evaluation mode, karena jika layer layer tertentu bisa punya kelakuan beda saat inference(eval) dan training, contoh kek batchnorm
+    for split in ['train', 'val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = get_batch(split)
+            logits, loss = model(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    model.train() # set model ke training mode
+    return out
 
 #One head self-attention
 class Head(nn.Module):
@@ -204,3 +257,33 @@ class GPTLanguageModel(nn.Module):
             # pasang idx_next yang di prediksi ke sequence yang udah ada buat ngulang lg
             idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
         return idx
+
+model = GPTLanguageModel(vocab_size)
+m = model.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
+
+# create a PyTorch optimizer
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+for iter in range(max_iters):
+
+    # every once in a while evaluate the loss on train and val sets
+    if iter % eval_interval == 0:
+        losses = estimate_loss()
+        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+    # sample a batch of data
+    xb, yb = get_batch('train')
+
+    # evaluate the loss
+    logits, loss = model(xb, yb)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+
+# save the model
+torch.save(model.state_dict(), 'model.pth')
+
+# generate from the model
+context = torch.zeros((1, 1), dtype=torch.long, device=device) #Start index
+#  [0] itu First dimension/firstbatch for predicition -> m.generate(context, max_new_tokens=500)[0].tolist()
+print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
