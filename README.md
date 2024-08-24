@@ -34,6 +34,16 @@ Written in Indonesian+English
 - He/Kaiming init weakness on more deep neural net
 - Little bit of dying relu and dead neuron
 - Batch Normalization Layer in depth and 2 approach on estimating mean and standard deviation for inference on the batchnorm layer
+- Torch.NN modules
+- Encoder - Decoder
+- Transformer
+- Key, Query, Value vector
+- Word Embedding + Positional Embedding
+- Residual connection
+- Self-Attention(Implemented) and Cross-Attention(Only Defintion)
+- Multihead Attention
+- Masking (Preventing current token communicating to future token, decoder structure)
+- Layer Normalization
 ---
 Noted and Created by Han Summer 2024
 
