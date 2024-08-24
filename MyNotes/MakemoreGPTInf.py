@@ -217,21 +217,27 @@ class GPTLanguageModel(nn.Module):
         return logits, loss
 
     def generate(self, idx, max_new_tokens):
-        # idx adlaah (B x T) tensor dari konteks saat ini
+        # idx adalah (B x T) tensor dari konteks saat ini
         for _ in range(max_new_tokens):
             # Potong idx ke last block_size token karena kita udah punya position embedding yang ukurannya cuman segede block_size, kalau lebih nanti out of size
             idx_cond = idx[:, -block_size:] # (B, T)
             # forward pass (Prediction mode)
-            logits, loss = self(idx_cond)#Call object dirinya sendiri (forward)
+            logits, loss = self(idx_cond)  # Call object dirinya sendiri (forward)
             # ambil idx paling belakang dari T, karena ini adalah prediksi untuk token selanjutnya
-            logits = logits[:, -1, :] # becomes (B, C)
+            logits = logits[:, -1, :]  # becomes (B, C)
             # pasang softmax untuk mendapatkan distribusi probabilitas
-            probs = F.softmax(logits, dim=-1) # (B, C)
+            probs = F.softmax(logits, dim=-1)  # (B, C)
             # sample prediksi dari distribusi probabilitas
-            idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+            idx_next = torch.multinomial(probs, num_samples=1)  # (B, 1)
             # pasang idx_next yang di prediksi ke sequence yang udah ada buat ngulang lg
-            idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+            idx = torch.cat((idx, idx_next), dim=1)  # (B, T+1)
+            
+            # Decode and print the latest token
+            latest_char = decode([idx_next.item()])
+            print(latest_char, end='', flush=True)  # Print without newline and flush immediately to output
+
         return idx
+
 
 #load model
 model_path='D:\Repository\makemore\MyNotes\modelTinyShakeSpearee.pth'
@@ -242,4 +248,4 @@ m=model_load.to(device)
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device) #Start index
 #  [0] itu First dimension/firstbatch for predicition -> m.generate(context, max_new_tokens=500)[0].tolist()
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+m.generate(context, max_new_tokens=1000)
