@@ -44,31 +44,6 @@ n= int(0.9*len(data))
 train_data=data[:n]
 val_data=data[n:]
 
-#Data loader
-def get_batch(split):
-    # generate a small batch of data of inputs x and targets y
-    data = train_data if split == 'train' else val_data # milih split train atau val
-    ix = torch.randint(len(data) - block_size, (batch_size,)) # generate random index positions, generate angka random 0 sampai len(data) - block_size sebanyak batch_sizenya, buat offset di training set
-    x = torch.stack([data[i:i+block_size] for i in ix]) # index ke i sampai i+block_size, ini inputnya, i itu angka yg ada di array ix
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix]) # targetnya adalah x yang di offset 1
-    #torch.stack itu buat numpuk tensor-tensor 1D terus di tumpuk semua (stack them up at rows)
-    x, y = x.to(device), y.to(device) # jika ada GPU kalkulasinya bakal kerja di GPU, jadi dipindah ke GPU
-    return x, y
-
-@torch.no_grad() #Kasih tau pytorch buat ga nyimpen gradient dari fungsi ini, karena ini buat evaluasi doang dan supaya lebih efisien
-def estimate_loss():
-    out = {}
-    model.eval() # set model ke evaluation mode, karena jika layer layer tertentu bisa punya kelakuan beda saat inference(eval) dan training, contoh kek batchnorm
-    for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
-            X, Y = get_batch(split)
-            logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
-    model.train() # set model ke training mode
-    return out
-
 #One head self-attention
 class Head(nn.Module):
     def __init__(self,head_size):
