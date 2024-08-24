@@ -234,9 +234,9 @@ class GPTLanguageModel(nn.Module):
         return idx
 
 #load model
-model_name='modelTinyShakeSpearee.pth'
+model_path='D:\Repository\makemore\MyNotes\modelTinyShakeSpearee.pth'
 model_load=GPTLanguageModel(vocab_size)
-model_load.load_state_dict(torch.load(model_name))
+model_load.load_state_dict(torch.load(model_path))
 m=model_load.to(device)
 
 # generate from the model
