@@ -7,6 +7,8 @@ Makemore originally created by Karpathy, et al.
 
 Written in Indonesian+English
 
+## Model in action can be seen in this [Youtube link](https://youtu.be/JkmfOrRH4Dk)
+
 ## What I learned
 - Torch syntax (I found out some is similar to Numpy), indexing, matrix (tensor) multiply, and documentation, also process on interpreting tensor size
 - Bigram language model with creating dict of char and look up table
